@@ -33,7 +33,7 @@ namespace foo_mtpsync
 			const std::wstring& objId,
 			pfc::list_t<metadb_handle_ptr>& syncList,
 			std::vector<std::wstring>& toDelete);
-		t_size FindInList(const std::wstring ObjectId, pfc::list_t<metadb_handle_ptr>& syncList);
+		t_size FindInList(const pfc::string_base& ObjectId, pfc::list_t<metadb_handle_ptr>& syncList);
 	};
 }
 

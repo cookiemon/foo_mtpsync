@@ -229,7 +229,14 @@ namespace foo_mtpsync
 
 	std::wstring MTPDevice::GetRootFolderObject()
 	{
-		return GetStorageObject();
+		std::wstring musicFolderId = GetStorageObject();
+		CComPtr<IEnumPortableDeviceObjectIDs> enumedIds;
+		content->EnumObjects(0, musicFolderId.c_str(), NULL, &enumedIds);
+
+		LPWSTR newId;
+		DWORD fetched = 0;
+		enumedIds->Next(1, &newId, &fetched);
+		return newId;
 	}
 
 	void MTPDevice::CollectDifferences(const pfc::string_base& folderName,
@@ -257,44 +264,47 @@ namespace foo_mtpsync
 				CComPtr<IPortableDeviceValues> values;
 				properties->GetValues(childObjIds[i], keys, &values);
 				LPWSTR fname;
-				values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &fname);
+				hr = values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &fname);
+				if(FAILED(hr))
+					throw Win32Exception();
 				GUID type;
-				values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &type);
-				int typeInt = 0;
-				if(type == WPD_CONTENT_TYPE_FOLDER)
-					typeInt = 1;
-				else if(type == WPD_CONTENT_TYPE_AUDIO)
-					typeInt = 2;
-				else if(type == WPD_CONTENT_TYPE_AUDIO_ALBUM)
-					typeInt = 3;
-				else if(type == WPD_CONTENT_TYPE_IMAGE)
-					typeInt = 4;
-				else
-					typeInt = -1;
+				hr = values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &type);
+				if(FAILED(hr))
+					throw Win32Exception();
+
+				// TODO: CHECK IF FILE SHOULD BE DELETED OR IS ALREADY ON DEVICE!
 				pfc::string8 fnameU8;
 				ToUtf8(fname, fnameU8);
 				pfc::string8 fullChildFolder = folderName;
-				fullChildFolder.add_char('\\');
+				if(!folderName.is_empty())
+					fullChildFolder.add_char('\\');
 				fullChildFolder.add_string(fnameU8);
-				CollectDifferences(fullChildFolder, childObjIds[i], syncList, toDelete);
+
+				t_size pos = FindInList(fullChildFolder, syncList);
+				if(pos != std::numeric_limits<t_size>::max())
+				{
+					if(type == WPD_CONTENT_TYPE_FOLDER)
+						CollectDifferences(fullChildFolder, childObjIds[i], syncList, toDelete);
+					else
+						syncList.remove_by_idx(pos);
+				}
+				else
+				{
+					toDelete.push_back(childObjIds[i]);
+				}
 			}
 		}
 	}
 
-	t_size MTPDevice::FindInList(const std::wstring fnameW, pfc::list_t<metadb_handle_ptr>& syncList)
+	t_size MTPDevice::FindInList(const pfc::string_base& fname, pfc::list_t<metadb_handle_ptr>& syncList)
 	{
 		static_api_ptr_t<library_manager> libMan;
-		char fnameCstr[512];
-		int numWritten = WideCharToMultiByte(CP_UTF8, 0, fnameW.c_str(), -1, fnameCstr, 512, NULL, NULL);
-		if(numWritten == 0)
-			throw Win32Exception();
-		pfc::string8 fname(fnameCstr);
-
 		for(t_size i = 0; i < syncList.get_count(); ++i)
 		{
 			pfc::string8 path;
 			if(libMan->get_relative_path(syncList.get_item(i), path))
 			{
+				StrStartsWithLC(path.get_ptr(), fname.get_ptr());
 				if(path == fname)
 					return i;
 			}

@@ -108,7 +108,7 @@ namespace foo_mtpsync
 		if(numChars == 0)
 			throw Win32Exception();
 		char* outBuf = new char[numChars];
-		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, 0, NULL, NULL);
+		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, numChars, NULL, NULL);
 		if(numChars == 0)
 		{
 			delete[] outBuf;
@@ -130,14 +130,14 @@ namespace foo_mtpsync
 		if(numChars == 0)
 			throw Win32Exception();
 		char* outBuf = new char[numChars];
-		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, 0, NULL, NULL);
+		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, numChars, NULL, NULL);
 		if(numChars == 0)
 		{
 			delete[] outBuf;
 			throw Win32Exception();
 		}
 
-		out = outBuf;
+		out.add_string(outBuf);
 		delete[] outBuf;
 	}
 }
