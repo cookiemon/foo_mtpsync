@@ -1,0 +1,28 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Visual Studio generated files
+*.pdb
+*.ilk
+Release/
+Release*/
+Debug/
+Debug*/
+ipch/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.vsp
