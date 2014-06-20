@@ -1,6 +1,7 @@
 #include "MTPDevice.h"
 #include "Win32Exception.h"
 #include <algorithm>
+#include <limits>
 #include <PortableDevice.h>
 #include <PortableDeviceApi.h>
 #include <PortableDeviceTypes.h>
@@ -131,87 +132,56 @@ namespace foo_mtpsync
 		RETASSTRING(WPD_RENDERING_INFORMATION_PROFILES);
 		RETASSTRING(WPD_RENDERING_INFORMATION_PROFILE_ENTRY_CREATABLE_RESOURCES);
 		RETASSTRING(WPD_RENDERING_INFORMATION_PROFILE_ENTRY_TYPE);
-		throw std::runtime_error("LOOL");
+		throw std::runtime_error("PROPKEY not yet known");
 	}
 
-	MTPDevice::MTPDevice()
+	MTPDevice::MTPDevice(const std::wstring& myId)
+		: Id(myId)
 	{
-		CComPtr<IPortableDeviceManager> dev;
-		dev.CoCreateInstance(CLSID_PortableDeviceManager);
-		DWORD numDevices = 0;
-		HRESULT hr = dev->GetDevices(NULL, &numDevices);
-		std::vector<LPWSTR> devIds(numDevices);
-		hr = dev->GetDevices(&devIds[0], &numDevices);
+		HRESULT hr = S_OK;
 
-		// TODO: Device selection
-		WCHAR buf[255];
-		DWORD size = 255;
-		Id = devIds[0];
-		dev->GetDeviceDescription(Id.c_str(), buf, &size);
-		Description = buf;
-		size = 255;
-		dev->GetDeviceFriendlyName(Id.c_str(), buf, &size);
-		FriendlyName = buf;
-		size = 255;
-		dev->GetDeviceManufacturer(Id.c_str(), buf, &size);
-		Manufacturer = buf;
+		CComPtr<IPortableDeviceValues> vals;
+		hr = vals.CoCreateInstance(CLSID_PortableDeviceValues);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = device.CoCreateInstance(CLSID_PortableDevice);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = device->Open(Id.c_str(), vals);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = device->Content(&content);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = content->Properties(&properties);
+		if(FAILED(hr))
+			throw Win32Exception();
+	}
+
+	std::wstring MTPDevice::GetDeviceSelection()
+	{
+		// TODO: SELECT DEVICES
+		CComPtr<IPortableDeviceManager> devMgr;
+		devMgr.CoCreateInstance(CLSID_PortableDeviceManager);
+		DWORD numDevices = 0;
+		devMgr->GetDevices(NULL, &numDevices);
+		std::vector<LPWSTR> devIds(numDevices);
+		devMgr->GetDevices(&devIds[0], &numDevices);
+
+		std::wstring firstId = devIds[0];
 
 		std::for_each(devIds.begin(), devIds.end(), [](LPWSTR str) { CoTaskMemFree(str); });
+
+		return firstId;
 	}
 
-	void MTPDevice::Sync()
+	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
 	{
-		CComPtr<IPortableDeviceValues> vals;
-		vals.CoCreateInstance(CLSID_PortableDeviceValues);
-		CComPtr<IPortableDevice> dev;
-		dev.CoCreateInstance(CLSID_PortableDevice);
-		dev->Open(Id.c_str(), vals);
-
-		CComPtr<IPortableDeviceContent> cont;
-		dev->Content(&cont);
-		CComPtr<IEnumPortableDeviceObjectIDs> objects;
-		cont->EnumObjects(0, WPD_DEVICE_OBJECT_ID, vals, &objects);
-
-		//CComPtr<IPortableDeviceKeyCollection> toRetrieve;
-		//toRetrieve.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
-		//toRetrieve->Add(WPD_OBJECT_NAME);
-		//toRetrieve->Add(WPD_OBJECT_FORMAT);
-		//toRetrieve->Add(WPD_OBJECT_CONTENT_TYPE);
-		//toRetrieve->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
-		CComPtr<IPortableDeviceProperties> props;
-		cont->Properties(&props);
-		ULONG fetched;
-		LPWSTR objBuf[ToFetch];
-		objects->Next(ToFetch, objBuf, &fetched);
-		while(fetched > 0)
-		{
-			for(size_t i = 0;
-				i < fetched;
-				++i)
-			{
-				CComPtr<IPortableDeviceValues> propVals;
-				HRESULT hr = props->GetValues(objBuf[i], NULL, &propVals);
-				DWORD count;
-				propVals->GetCount(&count);
-				for(DWORD k = 0; k < count; ++k)
-				{
-					PROPERTYKEY key;
-					PROPVARIANT var;
-					propVals->GetAt(k, &key, &var);
-					std::string keyStr = PropToString(key);
-					keyStr = keyStr;
-					//MessageBoxW(NULL, , L"HIHI", 0);
-				}
-			}
-			objects->Next(ToFetch, objBuf, &fetched);
-		}
+		std::wstring rootId = GetRootFolderObject();
 	}
 
-	std::wstring MTPDevice::GetStorageObject(CComPtr<IPortableDeviceContent>& content)
+	std::wstring MTPDevice::GetStorageObject()
 	{
-		CComPtr<IPortableDeviceProperties> props;
-		content->Properties(&props);
-
 		CComPtr<IPortableDeviceKeyCollection> toRetrieve;
 		HRESULT hr = S_OK;
 		hr = toRetrieve.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
@@ -225,7 +195,10 @@ namespace foo_mtpsync
 			throw Win32Exception();
 
 		CComPtr<IEnumPortableDeviceObjectIDs> subRootIds;
-		content->EnumObjects(0, WPD_DEVICE_OBJECT_ID, NULL, &subRootIds);
+		hr = content->EnumObjects(0, WPD_DEVICE_OBJECT_ID, NULL, &subRootIds);
+		if(FAILED(hr))
+			throw Win32Exception();
+
 		DWORD numFetched;
 		LPWSTR objBuf[ToFetch];
 		subRootIds->Next(ToFetch, objBuf, &numFetched);
@@ -234,24 +207,71 @@ namespace foo_mtpsync
 			for(size_t i = 0; i < numFetched; ++i)
 			{
 				CComPtr<IPortableDeviceValues> propVals;
-				HRESULT hr = props->GetValues(objBuf[i], toRetrieve, &propVals);
-				DWORD count;
-				propVals->GetCount(&count);
-				for(DWORD k = 0; k < count; ++k)
-				{
-					PROPERTYKEY key;
-					PROPVARIANT var;
-					propVals->GetAt(k, &key, &var);
-					std::string keyStr = PropToString(key);
-					keyStr = keyStr;
-					//MessageBoxW(NULL, , L"HIHI", 0);
-				}
+				HRESULT hr = properties->GetValues(objBuf[i], toRetrieve, &propVals);
+				GUID value;
+
+				hr = propVals->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &value);
+				if(FAILED(hr) || value != WPD_CONTENT_TYPE_FUNCTIONAL_OBJECT)
+					continue;
+
+				hr = propVals->GetGuidValue(WPD_FUNCTIONAL_OBJECT_CATEGORY, &value);
+				if(FAILED(hr) || value != WPD_FUNCTIONAL_CATEGORY_STORAGE)
+					continue;
+
+				return objBuf[i];
 			}
 		}
 		throw std::runtime_error("Could not find storage on chosen device");
 	}
 
-	std::wstring MTPDevice::GetRootFolderObject(CComPtr<IPortableDeviceContent>& props)
+	std::wstring MTPDevice::GetRootFolderObject()
 	{
+		return GetStorageObject();
+	}
+
+	void MTPDevice::CollectDifferences(const std::string& folderName,
+		const std::wstring& objId,
+		pfc::list_t<metadb_handle_ptr>& syncList,
+		std::vector<std::wstring>& toDelete)
+	{
+		HRESULT hr = S_OK;
+		CComPtr<IEnumPortableDeviceObjectIDs> childObjList;
+		hr = content->EnumObjects(0, objId.c_str(), nullptr, &childObjList);
+		if(FAILED(hr))
+			throw Win32Exception();
+		CComPtr<IPortableDeviceKeyCollection> keys;
+		keys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
+		keys->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
+
+		LPWSTR childObjIds[ToFetch];
+		DWORD fetched = 0;
+		childObjList->Next(ToFetch, childObjIds, &fetched);
+		while(fetched > 0)
+		{
+			for(size_t i = 0; i < fetched; ++i)
+			{
+			}
+		}
+	}
+
+	t_size MTPDevice::FindInList(const std::wstring fnameW, pfc::list_t<metadb_handle_ptr>& syncList)
+	{
+		static_api_ptr_t<library_manager> libMan;
+		char fnameCstr[512];
+		int numWritten = WideCharToMultiByte(CP_UTF8, 0, fnameW.c_str(), -1, fnameCstr, 512, NULL, NULL);
+		if(numWritten == 0)
+			throw Win32Exception();
+		pfc::string8 fname(fnameCstr);
+
+		for(t_size i = 0; i < syncList.get_count(); ++i)
+		{
+			pfc::string8 path;
+			if(libMan->get_relative_path(syncList.get_item(i), path))
+			{
+				if(path == fname)
+					return i;
+			}
+		}
+		return std::numeric_limits<t_size>::max();
 	}
 }

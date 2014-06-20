@@ -33,7 +33,7 @@ namespace foo_mtpsync
 		plMan->activeplaylist_get_all_items(items);
 		SyncInfoMap map = CreateSyncInfoMap(items);
 
-		MTPDevice dev;
-		dev.Sync();
+		MTPDevice dev(MTPDevice::GetDeviceSelection());
+		dev.Sync(items);
 	}
 }

@@ -2,11 +2,12 @@
 #define MTPDEVICE_H
 
 #include "common.h"
+#include <atlbase.h>
 #include <string>
 #include <PortableDevice.h>
 #include <PortableDeviceApi.h>
 #include <PortableDeviceTypes.h>
-#include <atlbase.h>
+#include <vector>
 
 namespace foo_mtpsync
 {
@@ -14,14 +15,25 @@ namespace foo_mtpsync
 	{
 	private:
 		std::wstring Id;
-		std::wstring FriendlyName;
-		std::wstring Manufacturer;
-		std::wstring Description;
+
+		CComPtr<IPortableDevice> device;
+		CComPtr<IPortableDeviceContent> content;
+		CComPtr<IPortableDeviceProperties> properties;
 	public:
-		MTPDevice();
-		void Sync();
-		std::wstring GetStorageObject(CComPtr<IPortableDeviceContent>& cont);
-		std::wstring GetRootFolderObject(CComPtr<IPortableDeviceContent>& cont);
+		MTPDevice(const std::wstring& myId);
+		void Sync(pfc::list_t<metadb_handle_ptr> toSync);
+
+		static std::wstring GetDeviceSelection();
+
+	private:
+		std::wstring GetStorageObject();
+		std::wstring GetRootFolderObject();
+
+		void CollectDifferences(const std::string& folderName,
+			const std::wstring& objId,
+			pfc::list_t<metadb_handle_ptr>& syncList,
+			std::vector<std::wstring>& toDelete);
+		t_size FindInList(const std::wstring ObjectId, pfc::list_t<metadb_handle_ptr>& syncList);
 	};
 }
 
