@@ -44,12 +44,33 @@ namespace foo_mtpsync
 	 * @param right Start sequence that is checked for
 	 * @return true iff left starts with right as a sequence
 	 */
-	inline bool StrStartsWithLC(const std::string& left, const std::string& right)
+	inline bool StrStartsWithLC(const std::string& str, const std::string& with)
 	{
-		if(left.length() < right.length())
+		if(str.length() < with.length())
 			return false;
 
-		return std::equal(right.begin(), right.end(), left.begin(), CompareTolower());
+		return std::equal(with.begin(), with.end(), str.begin(), CompareTolower());
+	}
+
+	inline bool StrStartsWithLC(const char* str, const char* with)
+	{
+		CompareTolower cmp;
+		while(str != '\0' && with != '\0' && cmp(*str, *with))
+		{
+			str += 1;
+			with += 1;
+		}
+		return *with == '\0';
+	}
+
+	inline bool StrStartsWith(const char* str, const char* with)
+	{
+		while(*str != '\0' && *with != '\0' && *str == *with)
+		{
+			str += 1;
+			with += 1;
+		}
+		return *with == '\0';
 	}
 
 	/**

@@ -176,11 +176,40 @@ namespace foo_mtpsync
 		return firstId;
 	}
 
+	class CompareRelativePath : public pfc::list_base_t<metadb_handle_ptr>::sort_callback
+	{
+	public:
+		int compare(const metadb_handle_ptr& left, const metadb_handle_ptr& right)
+		{
+			pfc::string8 leftPath;
+			pfc::string8 rightPath;
+			static_api_ptr_t<library_manager> libMan;
+			libMan->get_relative_path(left, leftPath);
+			libMan->get_relative_path(right, rightPath);
+			return pfc::compare_t(left, right);
+		}
+	};
+
 	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
 	{
+		toSync.sort(CompareRelativePath());
 		std::wstring rootId = GetRootFolderObject();
 		std::vector<std::wstring> toDelete;
 		CollectDifferences(pfc::string8(""), rootId, toSync, toDelete);
+
+
+		CComPtr<IPortableDevicePropVariantCollection> col;
+		col.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+
+		std::vector<PROPVARIANT> varlist(toDelete.size());
+		for(t_size i = 0; i < toDelete.size(); ++i)
+		{
+			varlist[i].vt = VT_LPWSTR;
+			// BEWARE! DRAGONS!
+			varlist[i].pwszVal = const_cast<LPWSTR>(toDelete[i].c_str());
+			col->Add(&varlist[i]);
+		}
+		content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, NULL);
 	}
 
 	std::wstring MTPDevice::GetStorageObject()
@@ -272,7 +301,6 @@ namespace foo_mtpsync
 				if(FAILED(hr))
 					throw Win32Exception();
 
-				// TODO: CHECK IF FILE SHOULD BE DELETED OR IS ALREADY ON DEVICE!
 				pfc::string8 fnameU8;
 				ToUtf8(fname, fnameU8);
 				pfc::string8 fullChildFolder = folderName;
@@ -293,21 +321,22 @@ namespace foo_mtpsync
 					toDelete.push_back(childObjIds[i]);
 				}
 			}
+			childObjList->Next(ToFetch, childObjIds, &fetched);
 		}
 	}
 
 	t_size MTPDevice::FindInList(const pfc::string_base& fname, pfc::list_t<metadb_handle_ptr>& syncList)
 	{
 		static_api_ptr_t<library_manager> libMan;
-		for(t_size i = 0; i < syncList.get_count(); ++i)
+		pfc::string8 relPath;
+		t_size i = 0;
+		for(i = 0; i < syncList.get_count() && relPath < fname; ++i)
 		{
-			pfc::string8 path;
-			if(libMan->get_relative_path(syncList.get_item(i), path))
-			{
-				StrStartsWithLC(path.get_ptr(), fname.get_ptr());
-				if(path == fname)
-					return i;
-			}
+			libMan->get_relative_path(syncList.get_item(i), relPath);
+		}
+		if(StrStartsWith(relPath.get_ptr(), fname.get_ptr()))
+		{
+			return i;
 		}
 		return std::numeric_limits<t_size>::max();
 	}
