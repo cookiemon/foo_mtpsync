@@ -29,7 +29,7 @@ namespace foo_mtpsync
 		std::wstring GetStorageObject();
 		std::wstring GetRootFolderObject();
 
-		void CollectDifferences(const std::string& folderName,
+		void CollectDifferences(const pfc::string_base& folderName,
 			const std::wstring& objId,
 			pfc::list_t<metadb_handle_ptr>& syncList,
 			std::vector<std::wstring>& toDelete);

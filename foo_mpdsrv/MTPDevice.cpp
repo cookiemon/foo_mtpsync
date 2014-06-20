@@ -1,4 +1,5 @@
 #include "MTPDevice.h"
+#include "StringUtil.h"
 #include "Win32Exception.h"
 #include <algorithm>
 #include <limits>
@@ -178,6 +179,8 @@ namespace foo_mtpsync
 	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
 	{
 		std::wstring rootId = GetRootFolderObject();
+		std::vector<std::wstring> toDelete;
+		CollectDifferences(pfc::string8(""), rootId, toSync, toDelete);
 	}
 
 	std::wstring MTPDevice::GetStorageObject()
@@ -229,7 +232,7 @@ namespace foo_mtpsync
 		return GetStorageObject();
 	}
 
-	void MTPDevice::CollectDifferences(const std::string& folderName,
+	void MTPDevice::CollectDifferences(const pfc::string_base& folderName,
 		const std::wstring& objId,
 		pfc::list_t<metadb_handle_ptr>& syncList,
 		std::vector<std::wstring>& toDelete)
@@ -242,6 +245,7 @@ namespace foo_mtpsync
 		CComPtr<IPortableDeviceKeyCollection> keys;
 		keys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
 		keys->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
+		keys->Add(WPD_OBJECT_CONTENT_TYPE);
 
 		LPWSTR childObjIds[ToFetch];
 		DWORD fetched = 0;
@@ -250,6 +254,29 @@ namespace foo_mtpsync
 		{
 			for(size_t i = 0; i < fetched; ++i)
 			{
+				CComPtr<IPortableDeviceValues> values;
+				properties->GetValues(childObjIds[i], keys, &values);
+				LPWSTR fname;
+				values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &fname);
+				GUID type;
+				values->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &type);
+				int typeInt = 0;
+				if(type == WPD_CONTENT_TYPE_FOLDER)
+					typeInt = 1;
+				else if(type == WPD_CONTENT_TYPE_AUDIO)
+					typeInt = 2;
+				else if(type == WPD_CONTENT_TYPE_AUDIO_ALBUM)
+					typeInt = 3;
+				else if(type == WPD_CONTENT_TYPE_IMAGE)
+					typeInt = 4;
+				else
+					typeInt = -1;
+				pfc::string8 fnameU8;
+				ToUtf8(fname, fnameU8);
+				pfc::string8 fullChildFolder = folderName;
+				fullChildFolder.add_char('\\');
+				fullChildFolder.add_string(fnameU8);
+				CollectDifferences(fullChildFolder, childObjIds[i], syncList, toDelete);
 			}
 		}
 	}

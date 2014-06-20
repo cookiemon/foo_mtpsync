@@ -2,8 +2,10 @@
 #define STRINGUTIL_H
 
 #include "common.h"
+#include "Win32Exception.h"
 #include <string>
 #include <limits>
+#include <Windows.h>
 
 namespace foo_mtpsync
 {
@@ -93,6 +95,50 @@ namespace foo_mtpsync
 	{
 		TrimRight(str);
 		TrimLeft(str);
+	}
+
+	/**
+	 * Converts a wide string to UTF-8
+	 * @author Cookiemon
+	 * @param str String to convert
+	 */
+	inline void ToUtf8(const std::wstring& str, std::string& out)
+	{
+		size_t numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, NULL, 0, NULL, NULL);
+		if(numChars == 0)
+			throw Win32Exception();
+		char* outBuf = new char[numChars];
+		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, 0, NULL, NULL);
+		if(numChars == 0)
+		{
+			delete[] outBuf;
+			throw Win32Exception();
+		}
+
+		out = outBuf;
+		delete[] outBuf;
+	}
+
+	/**
+	 * Converts a wide string to UTF-8
+	 * @author Cookiemon
+	 * @param str String to convert
+	 */
+	inline void ToUtf8(const std::wstring& str, pfc::string_base& out)
+	{
+		size_t numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, NULL, 0, NULL, NULL);
+		if(numChars == 0)
+			throw Win32Exception();
+		char* outBuf = new char[numChars];
+		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, 0, NULL, NULL);
+		if(numChars == 0)
+		{
+			delete[] outBuf;
+			throw Win32Exception();
+		}
+
+		out = outBuf;
+		delete[] outBuf;
 	}
 }
 
