@@ -144,22 +144,48 @@ namespace foo_mtpsync
 	 * Converts a wide string to UTF-8
 	 * @author Cookiemon
 	 * @param str String to convert
+	 * @tparam T type of string to convert to (default: pfc::string8)
 	 */
-	inline void ToUtf8(const std::wstring& str, pfc::string_base& out)
+	template<typename T>
+	T ToUtf8(const std::wstring& str)
 	{
 		size_t numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, NULL, 0, NULL, NULL);
 		if(numChars == 0)
 			throw Win32Exception();
-		char* outBuf = new char[numChars];
-		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, outBuf, numChars, NULL, NULL);
+		std::vector<char> outBuf(numChars);
+		numChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), -1, &outBuf[0], numChars, NULL, NULL);
 		if(numChars == 0)
-		{
-			delete[] outBuf;
 			throw Win32Exception();
-		}
 
-		out.add_string(outBuf);
-		delete[] outBuf;
+		return T(&outBuf[0]);
+	}
+
+	/**
+	 * Converts a UTF-8 string to wide char
+	 * @author Cookiemon
+	 * @param str String to convert
+	 */
+	inline std::wstring ToWChar(const char* str)
+	{
+		size_t numChars = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+		if(numChars == 0)
+			throw Win32Exception();
+		std::vector<WCHAR> outBuf(numChars);
+		numChars = MultiByteToWideChar(CP_UTF8, 0, str, -1, &outBuf[0], numChars);
+		if(numChars == 0)
+			throw Win32Exception();
+
+		return std::wstring(outBuf.begin(), outBuf.end());
+	}
+
+	/**
+	 * Converts a UTF-8 string to wide char
+	 * @author Cookiemon
+	 * @param str String to convert
+	 */
+	inline std::wstring ToWChar(const std::string& str)
+	{
+		return ToWChar(str.c_str());
 	}
 }
 
