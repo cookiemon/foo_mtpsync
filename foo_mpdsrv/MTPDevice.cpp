@@ -3,6 +3,7 @@
 #include "Win32Exception.h"
 #include <algorithm>
 #include <limits>
+#include <map>
 #include <PortableDevice.h>
 #include <PortableDeviceApi.h>
 #include <PortableDeviceTypes.h>
@@ -190,12 +191,70 @@ namespace foo_mtpsync
 		}
 	};
 
+	std::wstring MTPDevice::CreateFolder(const std::wstring& parentId, const std::wstring& folderName)
+	{
+		HRESULT hr = S_OK;
+		CComPtr<IPortableDeviceValues> values;
+		values.CoCreateInstance(CLSID_PortableDeviceValues);
+		values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_FOLDER);
+		values->SetStringValue(WPD_OBJECT_PARENT_ID, parentId.c_str());
+		values->SetStringValue(WPD_OBJECT_NAME, folderName.c_str());
+		values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, folderName.c_str());
+		values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_UNSPECIFIED);
+		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
+		LPWSTR objId;
+		hr = content->CreateObjectWithPropertiesOnly(values, &objId);
+		if(FAILED(hr))
+			hr = GetLastError();
+		std::wstring newObjId = objId;
+		CoTaskMemFree(objId);
+		return newObjId;
+	}
+
+	void MTPDevice::Delete(const std::wstring& objId)
+	{
+		HRESULT hr = S_OK;
+		CComPtr<IPortableDevicePropVariantCollection> col;
+		col.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
+		PROPVARIANT var;
+		var.vt = VT_LPWSTR;
+		var.pwszVal = const_cast<LPWSTR>(objId.c_str());
+		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, NULL);
+		if(FAILED(hr))
+			throw Win32Exception();
+	}
+
+	std::wstring MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
+	{
+		// TODO
+		HRESULT hr = S_OK;
+		CComPtr<IPortableDeviceValues> values;
+		std::wstring wcharbuf;
+		pfc::string8 uft8buf;
+		values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_AUDIO);
+		values->SetStringValue(WPD_OBJECT_PARENT_ID, parentId.c_str());
+		const char* foo = file->get_path();
+		//values->SetStringValue(WPD_OBJECT_NAME, ToWChar());
+		//values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_MP3);
+		//values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE,);
+		//values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME,);
+		//values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
+		//values->SetBoolValue(WPD_OBJECT_CAN_DELETE, TRUE);
+		//values->SetStringValue(WPD_MEDIA_ARTIST,);
+		//values->SetStringValue(WPD_MEDIA_TITLE,);
+		//values->SetUnsignedIntegerValue(WPD_MEDIA_DURATION,);
+		//CComPtr<IStream> dataStream;
+		//SHOpenFolderAndSelectItems(
+		//hr = content->CreateObjectWithPropertiesAndData(values, &dataStream, NULL, NULL);
+	}
+
 	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
 	{
+		HRESULT hr = S_OK;
 		toSync.sort(CompareRelativePath());
 		std::wstring rootId = GetRootFolderObject();
 		std::vector<std::wstring> toDelete;
-		CollectDifferences(pfc::string8(""), rootId, toSync, toDelete);
+		SyncRecursive(pfc::string8(""), rootId, toSync, 0);
 
 
 		CComPtr<IPortableDevicePropVariantCollection> col;
@@ -209,7 +268,22 @@ namespace foo_mtpsync
 			varlist[i].pwszVal = const_cast<LPWSTR>(toDelete[i].c_str());
 			col->Add(&varlist[i]);
 		}
-		content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, NULL);
+		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, NULL);
+		if(FAILED(hr))
+			throw Win32Exception();
+
+		for(t_size i = 0; i < toSync.get_count(); ++i)
+		{
+			if(FAILED(hr))
+				throw Win32Exception();
+		}
+	}
+
+	void RecursiveSynchronize(pfc::list_t<metadb_handle_ptr>& toSync,
+		t_size beginRange, t_size endRange, t_size sepPos,
+		const std::wstring& currentFolderId)
+	{
+		std::map<std::wstring, std::wstring> nameIdMap;
 	}
 
 	std::wstring MTPDevice::GetStorageObject()
@@ -268,10 +342,10 @@ namespace foo_mtpsync
 		return newId;
 	}
 
-	void MTPDevice::CollectDifferences(const pfc::string_base& folderName,
-		const std::wstring& objId,
-		pfc::list_t<metadb_handle_ptr>& syncList,
-		std::vector<std::wstring>& toDelete)
+	void MTPDevice::SyncRecursive(const pfc::string_base& folderName,
+			const std::wstring& objId,
+			pfc::list_t<metadb_handle_ptr>& syncList,
+			t_size myPos)
 	{
 		HRESULT hr = S_OK;
 		CComPtr<IEnumPortableDeviceObjectIDs> childObjList;
@@ -301,8 +375,7 @@ namespace foo_mtpsync
 				if(FAILED(hr))
 					throw Win32Exception();
 
-				pfc::string8 fnameU8;
-				ToUtf8(fname, fnameU8);
+				pfc::string8 fnameU8 = ToUtf8<pfc::string8>(fname);
 				pfc::string8 fullChildFolder = folderName;
 				if(!folderName.is_empty())
 					fullChildFolder.add_char('\\');
@@ -312,16 +385,34 @@ namespace foo_mtpsync
 				if(pos != std::numeric_limits<t_size>::max())
 				{
 					if(type == WPD_CONTENT_TYPE_FOLDER)
-						CollectDifferences(fullChildFolder, childObjIds[i], syncList, toDelete);
+						SyncRecursive(fullChildFolder, childObjIds[i], syncList, pos);
 					else
 						syncList.remove_by_idx(pos);
 				}
 				else
 				{
-					toDelete.push_back(childObjIds[i]);
+					Delete(childObjIds[i]);
 				}
 			}
 			childObjList->Next(ToFetch, childObjIds, &fetched);
+		}
+
+		metadb_handle_ptr cur = syncList[myPos];
+		while(syncList.get_count() > myPos && StrStartsWithLC(cur->get_path(), folderName))
+		{
+			std::string pathEnd = cur->get_path() + folderName.get_length();
+			size_t slash = pathEnd.find('\\');
+			if(slash != std::string::npos)
+			{
+				pathEnd.erase(slash);
+				pfc::string8 newFolderPath = folderName;
+				newFolderPath.add_string(pathEnd.c_str());
+				SyncRecursive(newFolderPath, CreateFolder(objId, ToWChar(pathEnd)), syncList, myPos);
+			}
+			else
+			{
+				TransferFile(objId, syncList.get_item(myPos));
+			}
 		}
 	}
 

@@ -28,11 +28,15 @@ namespace foo_mtpsync
 	private:
 		std::wstring GetStorageObject();
 		std::wstring GetRootFolderObject();
+	
+		void Delete(const std::wstring& objId);
+		std::wstring CreateFolder(const std::wstring& parentId, const std::wstring& folderName);
+		std::wstring TransferFile(const std::wstring& parentId, const metadb_handle_ptr file);
 
-		void CollectDifferences(const pfc::string_base& folderName,
+		void SyncRecursive(const pfc::string_base& folderName,
 			const std::wstring& objId,
 			pfc::list_t<metadb_handle_ptr>& syncList,
-			std::vector<std::wstring>& toDelete);
+			t_size myPos);
 		t_size FindInList(const pfc::string_base& ObjectId, pfc::list_t<metadb_handle_ptr>& syncList);
 	};
 }
