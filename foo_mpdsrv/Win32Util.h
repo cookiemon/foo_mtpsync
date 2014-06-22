@@ -1,8 +1,9 @@
 #ifndef WIN32EXCEPTION_H
 #define WIN32EXCEPTION_H
 
-#include <Windows.h>
+#include <atlbase.h>
 #include <stdexcept>
+#include <Windows.h>
 
 class Win32Exception : public std::exception
 {

@@ -72,7 +72,7 @@
     <ClInclude Include="MTPDevice.h">
       <Filter>Header Files\Synchronizer</Filter>
     </ClInclude>
-    <ClInclude Include="Win32Exception.h">
+    <ClInclude Include="Win32Util.h">
       <Filter>Header Files\Utility</Filter>
     </ClInclude>
   </ItemGroup>

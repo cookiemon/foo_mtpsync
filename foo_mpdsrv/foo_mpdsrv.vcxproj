@@ -178,7 +178,7 @@
     <ClInclude Include="SleepyThread.h" />
     <ClInclude Include="Synchronizator.h" />
     <ClInclude Include="Timer.h" />
-    <ClInclude Include="Win32Exception.h" />
+    <ClInclude Include="Win32Util.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConfigDialog.cpp" />
