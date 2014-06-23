@@ -2,6 +2,7 @@
 #define MTPDEVICE_H
 
 #include "common.h"
+#include "Win32Util.h"
 #include <atlbase.h>
 #include <string>
 #include <PortableDevice.h>
@@ -11,7 +12,9 @@
 
 namespace foo_mtpsync
 {
-	class MTPDevice
+	class Synchronizator;
+
+	class MTPDevice : public threaded_process_callback
 	{
 	private:
 		std::wstring Id;
@@ -19,13 +22,23 @@ namespace foo_mtpsync
 		CComPtr<IPortableDevice> device;
 		CComPtr<IPortableDeviceContent> content;
 		CComPtr<IPortableDeviceProperties> properties;
-
 		CComPtr<IPortableDeviceKeyCollection> fNameContentTypeKeys;
+
+		pfc::list_t<metadb_handle_ptr> toSync;
+
+		threaded_process_status* status;
+		int servicecount;
+		Synchronizator* parent;
 	public:
-		MTPDevice(const std::wstring& myId);
-		void Sync(pfc::list_t<metadb_handle_ptr> toSync);
+		MTPDevice(const std::wstring& myId, pfc::list_t<metadb_handle_ptr> filesToSync, Synchronizator* sync);
 
 		static std::wstring GetDeviceSelection();
+
+		void run(threaded_process_status& p_status, abort_callback& p_abort);
+		int service_add_ref() throw();
+		int service_release() throw();
+		void on_init(HWND p_wnd);
+		void on_done(HWND p_wnd, bool p_was_aborted);
 
 	private:
 		std::wstring GetStorageObject();

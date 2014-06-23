@@ -47,4 +47,41 @@ public:
 	}
 };
 
+class EventObject
+{
+private:
+	HANDLE hand;
+
+	EventObject(const EventObject&);
+	EventObject& operator=(const EventObject&);
+public:
+	EventObject(bool manualReset = true)
+	{
+		hand = CreateEvent(NULL, manualReset, FALSE, NULL);
+		if(hand == NULL)
+			throw Win32Exception();
+	}
+	~EventObject()
+	{
+		CloseHandle(hand);
+	}
+	bool Wait(DWORD timeout = INFINITE)
+	{
+		DWORD retVal = WaitForSingleObject(hand, timeout);
+		if(retVal == WAIT_FAILED)
+			throw Win32Exception();
+		return retVal == WAIT_OBJECT_0;
+	}
+	void Set()
+	{
+		if(!SetEvent(hand))
+			throw Win32Exception();
+	}
+	void Reset()
+	{
+		if(!ResetEvent(hand))
+			throw Win32Exception();
+	}
+};
+
 #endif

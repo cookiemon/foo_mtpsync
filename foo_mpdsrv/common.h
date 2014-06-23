@@ -3,7 +3,7 @@
 
 //#pragma warning(disable: 4505)
 #pragma warning(push, 2)
-#pragma warning(disable: 4555 4350 4711)
+#pragma warning(disable: 4555 4350 4711 4946)
 // Microsoft, I hate you. I really really do.
 // Breaks std::numeric_limits<>::max()
 #define NOMINMAX

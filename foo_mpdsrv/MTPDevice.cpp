@@ -1,6 +1,7 @@
 #include "MTPDevice.h"
 #include "FoobarUtil.h"
 #include "StringUtil.h"
+#include "Synchronizator.h"
 #include "Win32Util.h"
 #include <algorithm>
 #include <limits>
@@ -9,11 +10,10 @@
 #include <PortableDeviceApi.h>
 #include <PortableDeviceTypes.h>
 #include <vector>
-#include <fstream>
-#include <sstream>
+
 namespace foo_mtpsync
 {
-	const ULONG ToFetch = 16;
+	const ULONG ToFetch = 1;
 
 #define RETASSTRING(x) if(key == x) return #x;
 	std::string PropToString(const PROPERTYKEY key)
@@ -139,40 +139,13 @@ namespace foo_mtpsync
 		throw std::runtime_error("PROPKEY not yet known");
 	}
 
-	MTPDevice::MTPDevice(const std::wstring& myId)
-		: Id(myId)
+	MTPDevice::MTPDevice(const std::wstring& myId, pfc::list_t<metadb_handle_ptr> filesToSync, Synchronizator* sync)
+		: Id(myId),
+		toSync(filesToSync),
+		status(nullptr),
+		servicecount(0),
+		parent(sync)
 	{
-		HRESULT hr = S_OK;
-
-		CComPtr<IPortableDeviceValues> vals;
-		hr = vals.CoCreateInstance(CLSID_PortableDeviceValues);
-		if(FAILED(hr))
-			throw Win32Exception();
-		hr = vals->SetUnsignedIntegerValue(WPD_CLIENT_DESIRED_ACCESS, GENERIC_READ | GENERIC_WRITE);
-		if(FAILED(hr))
-			throw Win32Exception();
-		hr = device.CoCreateInstance(CLSID_PortableDevice);
-		if(FAILED(hr))
-			throw Win32Exception();
-		hr = device->Open(Id.c_str(), vals);
-		if(FAILED(hr))
-			throw Win32Exception();
-		hr = device->Content(&content);
-		if(FAILED(hr))
-			throw Win32Exception();
-		hr = content->Properties(&properties);
-		if(FAILED(hr))
-			throw Win32Exception();
-
-		hr = fNameContentTypeKeys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
-		if(FAILED(hr))
-			throw Win32Exception();
-		fNameContentTypeKeys->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
-		if(FAILED(hr))
-			throw Win32Exception();
-		fNameContentTypeKeys->Add(WPD_OBJECT_CONTENT_TYPE);
-		if(FAILED(hr))
-			throw Win32Exception();
 	}
 
 	std::wstring MTPDevice::GetDeviceSelection()
@@ -234,6 +207,12 @@ namespace foo_mtpsync
 
 	void MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
 	{
+		if(status != nullptr)
+		{
+			status->set_progress(toSync.get_count());
+			status->set_item_path(file->get_path());
+		}
+
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDeviceValues> values;
 		values.CoCreateInstance(CLSID_PortableDeviceValues);
@@ -303,15 +282,6 @@ namespace foo_mtpsync
 			throw Win32Exception();
 		hr = dataInputStream->Commit(STGC_DEFAULT);
 		hr = dataOutputStream->Commit(STGC_DEFAULT);
-	}
-
-	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
-	{
-		CompareRelativePath pathComparator;
-		toSync.sort(pathComparator);
-
-		std::wstring rootId = GetRootFolderObject();
-		SyncRecursive(pfc::string8(""), rootId, toSync, 0);
 	}
 
 	std::wstring MTPDevice::GetStorageObject()
@@ -460,5 +430,69 @@ namespace foo_mtpsync
 		if(PathStartsWith(relPath.get_ptr(), fname.get_ptr()))
 			return i;
 		return std::numeric_limits<t_size>::max();
+	}
+
+	void MTPDevice::run(threaded_process_status& p_status, abort_callback& p_abort)
+	{
+		status = &p_status;
+		status->set_progress(0, toSync.get_count());
+
+		CompareRelativePath pathComparator;
+		toSync.sort(pathComparator);
+
+		std::wstring rootId = GetRootFolderObject();
+		SyncRecursive(pfc::string8(""), rootId, toSync, 0);
+	}
+	int MTPDevice::service_add_ref() throw()
+	{
+		return servicecount += 1;
+	}
+	int MTPDevice::service_release() throw()
+	{
+		return servicecount -= 1;
+	}
+	void MTPDevice::on_init(HWND p_wnd)
+	{
+		HRESULT hr = S_OK;
+
+		CComPtr<IPortableDeviceValues> vals;
+		hr = vals.CoCreateInstance(CLSID_PortableDeviceValues);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = vals->SetUnsignedIntegerValue(WPD_CLIENT_DESIRED_ACCESS, GENERIC_READ | GENERIC_WRITE);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = device.CoCreateInstance(CLSID_PortableDevice);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = device->Open(Id.c_str(), vals);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = device->Content(&content);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = content->Properties(&properties);
+		if(FAILED(hr))
+			throw Win32Exception();
+
+		hr = fNameContentTypeKeys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
+		if(FAILED(hr))
+			throw Win32Exception();
+		fNameContentTypeKeys->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
+		if(FAILED(hr))
+			throw Win32Exception();
+		fNameContentTypeKeys->Add(WPD_OBJECT_CONTENT_TYPE);
+		if(FAILED(hr))
+			throw Win32Exception();
+	}
+	void MTPDevice::on_done(HWND p_wnd, bool p_was_aborted)
+	{
+		HRESULT hr = S_OK;
+		fNameContentTypeKeys = nullptr;
+		content = nullptr;
+		properties = nullptr;
+		device = nullptr;
+		if(parent != nullptr)
+			parent->Finish();
 	}
 }

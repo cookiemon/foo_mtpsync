@@ -32,6 +32,8 @@ namespace foo_mtpsync
 
 	class mainmenu_command_connect : public mainmenu_commands
 	{
+	private:
+		Synchronizator syn;
 	public:
 		// {40AB1BC6-DA02-4156-A2CC-87678DCA632C}
 		static const GUID _command_guid;
@@ -117,7 +119,6 @@ namespace foo_mtpsync
 				switch(idx)
 				{
 				case cmd_sync:
-					Synchronizator syn;
 					syn.Synchronize();
 					break;
 				default:
