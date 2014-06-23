@@ -215,13 +215,9 @@ namespace foo_mtpsync
 		values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_UNSPECIFIED);
 		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
 		LPWSTR objId;
-		do
-		{
-			hr = content->CreateObjectWithPropertiesOnly(values, &objId);
-			if(FAILED(hr))
-				hr = GetLastError();
-		}
-		while(hr == 0x3e5);
+		hr = content->CreateObjectWithPropertiesOnly(values, &objId);
+		if(FAILED(hr))
+			hr = GetLastError();
 		std::wstring newObjId = objId;
 		CoTaskMemFree(objId);
 		return newObjId;
@@ -244,50 +240,75 @@ namespace foo_mtpsync
 
 	void MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
 	{
-//		HRESULT hr = S_OK;
-//		CComPtr<IPortableDeviceValues> values;
-//		values.CoCreateInstance(CLSID_PortableDeviceValues);
-//		std::wstring wcharbuf;
-//		pfc::string8 uft8buf;
-//		values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_AUDIO);
-//		values->SetStringValue(WPD_OBJECT_PARENT_ID, parentId.c_str());
-//
-//		std::wstring fullPath = ToWChar(file->get_path());
-//		size_t lastSlash = fullPath.rfind('\\');
-//
-//		// TODO: Really?
-//		assert(lastSlash != std::string::npos);
-//		std::wstring fileName(fullPath.begin() + lastSlash + 1, fullPath.end());
-//
-//		values->SetStringValue(WPD_OBJECT_NAME, fileName.c_str());
-//		//values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_MP3);
-//		values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, fileName.c_str());
-//		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
-//		values->SetBoolValue(WPD_OBJECT_CAN_DELETE, TRUE);
-//		//values->SetStringValue(WPD_MEDIA_ARTIST,);
-//		//values->SetStringValue(WPD_MEDIA_TITLE,);
-//		//values->SetUnsignedIntegerValue(WPD_MEDIA_DURATION,);
-//		CComPtr<IStream> dataInputStream;
-//		CComPtr<IStream> dataOutputStream;
-//		hr = SHCreateStreamOnFile(fullPath.c_str() + 7, STGM_READ | STGM_SHARE_DENY_NONE, &dataInputStream);
-//		if(FAILED(hr))
-//			throw Win32Exception();
-//		DWORD optBufSize = 512;
-//		hr = content->CreateObjectWithPropertiesAndData(values, &dataOutputStream, &optBufSize, NULL);
-//		if(FAILED(hr))
-//			throw Win32Exception();
-//		ULARGE_INTEGER maxSize;
-//		maxSize.QuadPart = std::numeric_limits<ULONGLONG>::max();
-//		ULARGE_INTEGER pcbRead, pcbWritten;
-//		hr = dataInputStream->CopyTo(dataOutputStream, maxSize, &pcbRead, &pcbWritten);
-//		if(FAILED(hr))
-//			throw Win32Exception();
-//		char foo[102400];
-//		ULONG pcb2;
-//		hr = dataOutputStream->Write(foo, 102400, &pcb2);
-//		hr = dataOutputStream->Commit(STGC_CONSOLIDATE);
-////		hr = dataInputStream->Commit(STGC_DEFAULT);
-////		hr = dataOutputStream->Commit(STGC_DEFAULT);
+		HRESULT hr = S_OK;
+		CComPtr<IPortableDeviceValues> values;
+		values.CoCreateInstance(CLSID_PortableDeviceValues);
+		std::wstring wcharbuf;
+		pfc::string8 uft8buf;
+
+		std::wstring fullPath = ToWChar(file->get_path());
+		size_t lastSlash = fullPath.rfind('\\');
+
+		// TODO: Really?
+		assert(lastSlash != std::string::npos);
+		std::wstring fileName(fullPath.begin() + lastSlash + 1, fullPath.end());
+
+		pfc::string8 titleU8;
+		pfc::string8 artistU8;
+		file->format_title_legacy(NULL, titleU8, "%title%", NULL);
+		file->format_title_legacy(NULL, artistU8, "%artist%", NULL);
+		std::wstring title = ToWChar(titleU8);
+		std::wstring artist = ToWChar(artistU8);
+
+		// Set object parameters
+		//WPD_OBJECT_ID	Required, read-only. A client cannot set this property, even at creation time.
+		values->SetStringValue(WPD_OBJECT_PARENT_ID, parentId.c_str()); // Required.
+		values->SetStringValue(WPD_OBJECT_NAME, fileName.c_str()); // Required if the object represents a file.
+		//WPD_OBJECT_PERSISTENT_UNIQUE_ID	Required, read-only. A client cannot set this property, even at creation time.
+		values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_MP3); // Required.
+		values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_AUDIO); // Required.
+		//WPD_OBJECT_ISHIDDEN	Required if the object is hidden.
+		//WPD_OBJECT_ISSYSTEM	Required if the object is a system object (represents a system file).
+		values->SetUnsignedLargeIntegerValue(WPD_OBJECT_SIZE, file->get_filesize()); // Required if the object has at least one resource.
+		values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, fileName.c_str()); // Required if the object represents a file.
+		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE); // Recommended if the object is not meant for consumption by the device.
+		//WPD_OBJECT_REFERENCES	Required if the object has references to other objects.
+		//WPD_OBJECT_IS_DRM_PROTECTED	Required if the object is protected by DRM technology.
+		//WPD_OBJECT_DATE_MODIFIED	Recommended.
+		//WPD_OBJECT_BACK_REFERENCES 	Recommended if the object is referenced by another object.
+		values->SetBoolValue(WPD_OBJECT_CAN_DELETE, TRUE); // Required if the object can be deleted.
+		//WPD_MEDIA_TOTAL_BITRATE	Recommended.
+		//WPD_MEDIA_SUBSCRIPTION_CONTENT_ID	Recommended if this object represents content from an online subscription service.
+		//WPD_MEDIA_USE_COUNT	Recommended.
+		//WPD_MEDIA_RELEASE_DATE	Recommended.
+		//WPD_MEDIA_STAR_RATING	Recommended.
+		//WPD_MEDIA_USER_EFFECTIVE_RATING	Recommended.
+		values->SetStringValue(WPD_MEDIA_TITLE, title.c_str()); // Required.
+		values->SetUnsignedLargeIntegerValue(WPD_MEDIA_DURATION, static_cast<ULONGLONG>(file->get_length() * 1000)); // Required.
+		//WPD_MEDIA_BUY_NOW	Recommended.
+		values->SetStringValue(WPD_MEDIA_ARTIST, artist.c_str()); // Recommended.
+		//WPD_MEDIA_ALBUM_ARTIST 	Recommended.
+		//WPD_MUSIC_ALBUM	Recommended.
+		//WPD_MUSIC_TRACK	Recommended.
+		//WPD_AUDIO_BITRATE	Recommended.
+
+		CComPtr<IStream> dataInputStream;
+		CComPtr<IStream> dataOutputStream;
+		hr = SHCreateStreamOnFile(fullPath.c_str() + 7, STGM_READ | STGM_SHARE_DENY_NONE, &dataInputStream);
+		if(FAILED(hr))
+			throw Win32Exception();
+		DWORD optBufSize = 512;
+		hr = content->CreateObjectWithPropertiesAndData(values, &dataOutputStream, &optBufSize, NULL);
+		if(FAILED(hr))
+			throw Win32Exception();
+		ULARGE_INTEGER maxSize;
+		maxSize.QuadPart = std::numeric_limits<ULONGLONG>::max();
+		ULARGE_INTEGER pcbRead, pcbWritten;
+		hr = dataInputStream->CopyTo(dataOutputStream, maxSize, &pcbRead, &pcbWritten);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = dataInputStream->Commit(STGC_DEFAULT);
+		hr = dataOutputStream->Commit(STGC_DEFAULT);
 	}
 
 	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
