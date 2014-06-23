@@ -54,6 +54,11 @@ namespace foo_mtpsync
 		TRACK_CALL_TEXT("MTPDevice::CreateFolder()");
 		if(abort != nullptr)
 			abort->check();
+		if(status != nullptr)
+		{
+			status->set_progress(statusMax - toSync.get_count(), statusMax);
+			status->set_item_path(ToUtf8<pfc::string8>(folderName).get_ptr());
+		}
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDeviceValues> values;
 		values.CoCreateInstance(CLSID_PortableDeviceValues);
@@ -76,6 +81,11 @@ namespace foo_mtpsync
 		TRACK_CALL_TEXT("MTPDevice::Delete()");
 		if(abort != nullptr)
 			abort->check();
+		if(status != nullptr)
+		{
+			status->set_progress(statusMax - toSync.get_count(), statusMax);
+			status->set_item("Deleting...");
+		}
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDevicePropVariantCollection> col;
 		col.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
