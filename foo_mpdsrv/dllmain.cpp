@@ -6,7 +6,7 @@
 namespace foo_mtpsync
 {
 	DECLARE_COMPONENT_VERSION("MTP Synchronization Component",
-	                          "0.1 Alpha",
+	                          "0.1",
 	                          "Synchronizes media library or playlists with portable devices");
 	VALIDATE_COMPONENT_FILENAME("foo_mtpsync.dll");
 	const char* PLUGINNAME = "MTP Synchronization";
