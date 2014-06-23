@@ -27,6 +27,7 @@ namespace foo_mtpsync
 
 	std::wstring MTPDevice::GetDeviceSelection()
 	{
+		TRACK_CALL_TEXT("MTPDevice::GetDeviceSelection()");
 		// TODO: SELECT DEVICES
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDeviceManager> devMgr;
@@ -50,6 +51,7 @@ namespace foo_mtpsync
 
 	std::wstring MTPDevice::CreateFolder(const std::wstring& parentId, const std::wstring& folderName)
 	{
+		TRACK_CALL_TEXT("MTPDevice::CreateFolder()");
 		if(abort != nullptr)
 			abort->check();
 		HRESULT hr = S_OK;
@@ -71,6 +73,7 @@ namespace foo_mtpsync
 
 	void MTPDevice::Delete(const std::wstring& objId)
 	{
+		TRACK_CALL_TEXT("MTPDevice::Delete()");
 		if(abort != nullptr)
 			abort->check();
 		HRESULT hr = S_OK;
@@ -88,6 +91,7 @@ namespace foo_mtpsync
 
 	void MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
 	{
+		TRACK_CALL_TEXT("MTPDevice::TransferFile()");
 		if(abort != nullptr)
 			abort->check();
 		if(status != nullptr)
@@ -153,8 +157,7 @@ namespace foo_mtpsync
 		hr = SHCreateStreamOnFile(fullPath.c_str() + 7, STGM_READ | STGM_SHARE_DENY_NONE, &dataInputStream);
 		if(FAILED(hr))
 			throw Win32Exception();
-		DWORD optBufSize = 512;
-		hr = content->CreateObjectWithPropertiesAndData(values, &dataOutputStream, &optBufSize, NULL);
+		hr = content->CreateObjectWithPropertiesAndData(values, &dataOutputStream, NULL, NULL);
 		if(FAILED(hr))
 			throw Win32Exception();
 		ULARGE_INTEGER maxSize;
@@ -168,6 +171,7 @@ namespace foo_mtpsync
 
 	std::wstring MTPDevice::GetStorageObject()
 	{
+		TRACK_CALL_TEXT("MTPDevice::GetStorageObject()");
 		CComPtr<IPortableDeviceKeyCollection> toRetrieve;
 		HRESULT hr = S_OK;
 		hr = toRetrieve.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
@@ -213,6 +217,7 @@ namespace foo_mtpsync
 
 	std::wstring MTPDevice::GetRootFolderObject()
 	{
+		TRACK_CALL_TEXT("MTPDevice::GetRootFolderObject()");
 		std::wstring musicFolderId = GetStorageObject();
 		CComPtr<IEnumPortableDeviceObjectIDs> enumedIds;
 		content->EnumObjects(0, musicFolderId.c_str(), NULL, &enumedIds);
@@ -228,6 +233,7 @@ namespace foo_mtpsync
 			pfc::list_t<metadb_handle_ptr>& syncList,
 			t_size myPos)
 	{
+		TRACK_CALL_TEXT("MTPDevice::SyncRecursive()");
 		HRESULT hr = S_OK;
 		CComPtr<IEnumPortableDeviceObjectIDs> childObjList;
 		hr = content->EnumObjects(0, objId.c_str(), nullptr, &childObjList);
@@ -302,6 +308,7 @@ namespace foo_mtpsync
 
 	t_size MTPDevice::FindInList(const pfc::string_base& fname, pfc::list_t<metadb_handle_ptr>& syncList)
 	{
+		TRACK_CALL_TEXT("MTPDevice::FindInList()");
 		static_api_ptr_t<library_manager> libMan;
 		pfc::string8 relPath;
 		t_size i = 0;
@@ -316,6 +323,7 @@ namespace foo_mtpsync
 
 	void MTPDevice::run(threaded_process_status& p_status, abort_callback& p_abort)
 	{
+		TRACK_CALL_TEXT("MTPDevice::run()");
 		try
 		{
 			status = &p_status;
@@ -352,6 +360,7 @@ namespace foo_mtpsync
 	}
 	void MTPDevice::on_init(HWND p_wnd)
 	{
+		TRACK_CALL_TEXT("MTPDevice::on_init()");
 		HRESULT hr = S_OK;
 
 		CComPtr<IPortableDeviceValues> vals;
@@ -386,6 +395,7 @@ namespace foo_mtpsync
 	}
 	void MTPDevice::on_done(HWND p_wnd, bool p_was_aborted)
 	{
+		TRACK_CALL_TEXT("MTPDevice::on_done()");
 		HRESULT hr = S_OK;
 		fNameContentTypeKeys = nullptr;
 		content = nullptr;

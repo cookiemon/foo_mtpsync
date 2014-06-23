@@ -8,6 +8,7 @@ namespace foo_mtpsync
 
 	void Synchronizator::Synchronize()
 	{
+		TRACK_CALL_TEXT("Synchronizator::Synchronize()");
 		if(dev != nullptr)
 			throw std::runtime_error("Device already syncing");
 
@@ -25,6 +26,7 @@ namespace foo_mtpsync
 
 	void Synchronizator::Finish()
 	{
+		TRACK_CALL_TEXT("Synchronizator::Finish()");
 		dev.release();
 	}
 }
