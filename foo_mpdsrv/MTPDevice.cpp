@@ -1,4 +1,5 @@
 #include "MTPDevice.h"
+#include "FoobarUtil.h"
 #include "StringUtil.h"
 #include "Win32Util.h"
 #include <algorithm>
@@ -145,7 +146,9 @@ namespace foo_mtpsync
 
 		CComPtr<IPortableDeviceValues> vals;
 		hr = vals.CoCreateInstance(CLSID_PortableDeviceValues);
-		vals->SetUnsignedIntegerValue(WPD_CLIENT_DESIRED_ACCESS, GENERIC_READ | GENERIC_WRITE);
+		if(FAILED(hr))
+			throw Win32Exception();
+		hr = vals->SetUnsignedIntegerValue(WPD_CLIENT_DESIRED_ACCESS, GENERIC_READ | GENERIC_WRITE);
 		if(FAILED(hr))
 			throw Win32Exception();
 		hr = device.CoCreateInstance(CLSID_PortableDevice);
@@ -177,37 +180,23 @@ namespace foo_mtpsync
 		// TODO: SELECT DEVICES
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDeviceManager> devMgr;
-		devMgr.CoCreateInstance(CLSID_PortableDeviceManager);
+		hr = devMgr.CoCreateInstance(CLSID_PortableDeviceManager);
+		if(FAILED(hr))
+			throw Win32Exception();
 		DWORD numDevices = 0;
 		hr = devMgr->GetDevices(NULL, &numDevices);
 		if(FAILED(hr))
 			throw Win32Exception();
 		if(numDevices == 0)
 			throw std::runtime_error("No portable devices found");
-		std::vector<LPWSTR> devIds(numDevices);
+		std::vector<CComHeapPtr<WCHAR> > devIds(numDevices);
 		hr = devMgr->GetDevices(&devIds[0], &numDevices);
 		if(FAILED(hr))
 			throw Win32Exception();
 		std::wstring firstId = devIds[0];
 
-		std::for_each(devIds.begin(), devIds.end(), [](LPWSTR str) { CoTaskMemFree(str); });
-
 		return firstId;
 	}
-
-	class CompareRelativePath : public pfc::list_base_t<metadb_handle_ptr>::sort_callback
-	{
-	public:
-		int compare(const metadb_handle_ptr& left, const metadb_handle_ptr& right)
-		{
-			pfc::string8 leftPath;
-			pfc::string8 rightPath;
-			static_api_ptr_t<library_manager> libMan;
-			libMan->get_relative_path(left, leftPath);
-			libMan->get_relative_path(right, rightPath);
-			return pfc::compare_t(left, right);
-		}
-	};
 
 	std::wstring MTPDevice::CreateFolder(const std::wstring& parentId, const std::wstring& folderName)
 	{
@@ -435,13 +424,8 @@ namespace foo_mtpsync
 		// Create immediate childs and traverse them if necessary
 		static_api_ptr_t<library_manager> libMan;
 		pfc::string8 relPath;
-		metadb_handle_ptr cur = NULL;
 		if(syncList.get_count() > myPos)
-		{
-			cur = syncList[myPos];
-			if(!libMan->get_relative_path(syncList.get_item(myPos), relPath))
-				throw std::runtime_error("File not in library");
-		}
+			relPath = GetRelativePath(syncList.get_item(myPos));
 		while(syncList.get_count() > myPos && PathStartsWith(relPath, folderName))
 		{
 			std::string subFolderName = relPath.get_ptr() + folderName.get_length();
@@ -460,11 +444,7 @@ namespace foo_mtpsync
 				syncList.remove_by_idx(myPos);
 			}
 			if(syncList.get_count() > myPos)
-			{
-				cur = syncList.get_item(myPos);
-				if(!libMan->get_relative_path(cur, relPath))
-					throw std::runtime_error("File not in library");
-			}
+				relPath = GetRelativePath(syncList.get_item(myPos));
 		}
 	}
 
@@ -474,7 +454,7 @@ namespace foo_mtpsync
 		pfc::string8 relPath;
 		t_size i = 0;
 		for(i = 0; i < syncList.get_count() && relPath < fname; ++i)
-			libMan->get_relative_path(syncList.get_item(i), relPath);
+			relPath = GetRelativePath(syncList.get_item(i));
 
 		i -= 1;
 		if(PathStartsWith(relPath.get_ptr(), fname.get_ptr()))

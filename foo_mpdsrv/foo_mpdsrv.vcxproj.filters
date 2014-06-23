@@ -39,6 +39,9 @@
     <ClInclude Include="Win32Util.h">
       <Filter>Header Files\Utility</Filter>
     </ClInclude>
+    <ClInclude Include="FoobarUtil.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
