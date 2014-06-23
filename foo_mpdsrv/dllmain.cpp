@@ -7,7 +7,7 @@ namespace foo_mtpsync
 {
 	DECLARE_COMPONENT_VERSION("MTP Synchronization Component",
 	                          "0.1 Alpha",
-	                          "Synchronizes media library or playlists with mtp devices");
+	                          "Synchronizes media library or playlists with portable devices");
 	VALIDATE_COMPONENT_FILENAME("foo_mtpsync.dll");
 	const char* PLUGINNAME = "MTP Synchronization";
 	const wchar_t* PLUGINNAMEW = L"MTP Synchronization";
@@ -15,27 +15,11 @@ namespace foo_mtpsync
 
 namespace foo_mtpsync
 {
-	class init : public initquit
-	{
-	public:
-		virtual void on_init()
-		{
-			TRACK_CALL_TEXT("init::on_init()");
-		}
-		virtual void on_quit()
-		{
-			TRACK_CALL_TEXT("init::on_quit()");
-		}
-	};
-
-	initquit_factory_t<init> connectionlistenerLoader;
-
 	class mainmenu_command_connect : public mainmenu_commands
 	{
 	private:
 		Synchronizator syn;
 	public:
-		// {40AB1BC6-DA02-4156-A2CC-87678DCA632C}
 		static const GUID _command_guid;
 		enum
 		{
@@ -113,9 +97,9 @@ namespace foo_mtpsync
 
 		virtual void execute(t_uint32 idx, service_ptr_t<service_base> unused)
 		{
+			TRACK_CALL_TEXT("mainmenu_command_connect::execute()");
 			try
 			{
-				TRACK_CALL_TEXT("mainmenu_command_connect::execute()");
 				switch(idx)
 				{
 				case cmd_sync:
