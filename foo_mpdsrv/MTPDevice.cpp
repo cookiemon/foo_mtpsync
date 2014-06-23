@@ -175,13 +175,19 @@ namespace foo_mtpsync
 	std::wstring MTPDevice::GetDeviceSelection()
 	{
 		// TODO: SELECT DEVICES
+		HRESULT hr = S_OK;
 		CComPtr<IPortableDeviceManager> devMgr;
 		devMgr.CoCreateInstance(CLSID_PortableDeviceManager);
 		DWORD numDevices = 0;
-		devMgr->GetDevices(NULL, &numDevices);
+		hr = devMgr->GetDevices(NULL, &numDevices);
+		if(FAILED(hr))
+			throw Win32Exception();
+		if(numDevices == 0)
+			throw std::runtime_error("No portable devices found");
 		std::vector<LPWSTR> devIds(numDevices);
-		devMgr->GetDevices(&devIds[0], &numDevices);
-
+		hr = devMgr->GetDevices(&devIds[0], &numDevices);
+		if(FAILED(hr))
+			throw Win32Exception();
 		std::wstring firstId = devIds[0];
 
 		std::for_each(devIds.begin(), devIds.end(), [](LPWSTR str) { CoTaskMemFree(str); });
@@ -435,7 +441,7 @@ namespace foo_mtpsync
 		{
 			cur = syncList[myPos];
 			if(!libMan->get_relative_path(syncList.get_item(myPos), relPath))
-				throw std::runtime_error("Error, file not in library");
+				throw std::runtime_error("File not in library");
 		}
 		while(syncList.get_count() > myPos && PathStartsWith(relPath, folderName))
 		{
@@ -458,7 +464,7 @@ namespace foo_mtpsync
 			{
 				cur = syncList.get_item(myPos);
 				if(!libMan->get_relative_path(cur, relPath))
-					throw std::runtime_error("Error, file not in library");
+					throw std::runtime_error("File not in library");
 			}
 		}
 	}

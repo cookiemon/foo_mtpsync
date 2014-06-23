@@ -1,6 +1,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "common.h"
 #include "Synchronizator.h"
+#include "Win32Util.h"
 
 namespace foo_mtpsync
 {
@@ -110,16 +111,31 @@ namespace foo_mtpsync
 
 		virtual void execute(t_uint32 idx, service_ptr_t<service_base> unused)
 		{
-			TRACK_CALL_TEXT("mainmenu_command_connect::execute()");
-			switch(idx)
+			try
 			{
-			case cmd_sync:
-				Synchronizator syn;
-				syn.Synchronize();
-				break;
-			default:
-				// PANIC!!
-				uBugCheck();
+				TRACK_CALL_TEXT("mainmenu_command_connect::execute()");
+				switch(idx)
+				{
+				case cmd_sync:
+					Synchronizator syn;
+					syn.Synchronize();
+					break;
+				default:
+					// PANIC!!
+					uBugCheck();
+				}
+			}
+			catch(std::runtime_error& ex)
+			{
+				std::string msg = "Error: ";
+				msg += ex.what();
+				MessageBoxA(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+			}
+			catch(Win32Exception& ex)
+			{
+				std::string msg = "Error: ";
+				msg += ex.what();
+				MessageBoxA(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
 			}
 		}
 	};
