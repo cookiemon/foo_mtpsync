@@ -193,7 +193,7 @@ namespace foo_mtpsync
 		hr = devMgr->GetDevices(&devIds[0], &numDevices);
 		if(FAILED(hr))
 			throw Win32Exception();
-		std::wstring firstId = devIds[0];
+		std::wstring firstId = devIds[0].m_pData;
 
 		return firstId;
 	}
@@ -209,12 +209,11 @@ namespace foo_mtpsync
 		values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, folderName.c_str());
 		values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_UNSPECIFIED);
 		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
-		LPWSTR objId;
+		CComHeapPtr<WCHAR> objId;
 		hr = content->CreateObjectWithPropertiesOnly(values, &objId);
 		if(FAILED(hr))
 			hr = GetLastError();
-		std::wstring newObjId = objId;
-		CoTaskMemFree(objId);
+		std::wstring newObjId = objId.m_pData;
 		return newObjId;
 	}
 
@@ -334,11 +333,11 @@ namespace foo_mtpsync
 		if(FAILED(hr))
 			throw Win32Exception();
 
-		DWORD numFetched;
-		LPWSTR objBuf[ToFetch];
-		subRootIds->Next(ToFetch, objBuf, &numFetched);
-		while(numFetched > 0)
+		DWORD numFetched = 0;
+		do
 		{
+			CComHeapPtr<WCHAR> objBuf[ToFetch];
+			subRootIds->Next(ToFetch, &objBuf[0], &numFetched);
 			for(size_t i = 0; i < numFetched; ++i)
 			{
 				CComPtr<IPortableDeviceValues> propVals;
@@ -353,9 +352,10 @@ namespace foo_mtpsync
 				if(FAILED(hr) || value != WPD_FUNCTIONAL_CATEGORY_STORAGE)
 					continue;
 
-				return objBuf[i];
+				return objBuf[i].m_pData;
 			}
 		}
+		while(numFetched > 0);
 		throw std::runtime_error("Could not find storage on chosen device");
 	}
 
@@ -365,10 +365,10 @@ namespace foo_mtpsync
 		CComPtr<IEnumPortableDeviceObjectIDs> enumedIds;
 		content->EnumObjects(0, musicFolderId.c_str(), NULL, &enumedIds);
 
-		LPWSTR newId;
+		CComHeapPtr<WCHAR> newId;
 		DWORD fetched = 0;
 		enumedIds->Next(1, &newId, &fetched);
-		return newId;
+		return newId.m_pData;
 	}
 
 	void MTPDevice::SyncRecursive(const pfc::string_base& folderName,

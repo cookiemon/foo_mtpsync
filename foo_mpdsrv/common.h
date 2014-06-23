@@ -1,8 +1,9 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#pragma warning(disable: 4505)
+//#pragma warning(disable: 4505)
 #pragma warning(push, 2)
+#pragma warning(disable: 4555 4350 4711)
 // Microsoft, I hate you. I really really do.
 // Breaks std::numeric_limits<>::max()
 #define NOMINMAX
@@ -12,7 +13,6 @@
 #include <ATLHelpers.h>
 #include <foobar2000.h>
 #include <fstream>
-#pragma warning(pop)
 #include <string>
 #include <cctype>
 #include <functional>
