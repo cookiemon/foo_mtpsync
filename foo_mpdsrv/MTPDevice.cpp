@@ -64,7 +64,7 @@ namespace foo_mtpsync
 		CComHeapPtr<WCHAR> objId;
 		hr = content->CreateObjectWithPropertiesOnly(values, &objId);
 		if(FAILED(hr))
-			hr = GetLastError();
+			throw Win32Exception();
 		std::wstring newObjId = objId.m_pData;
 		return newObjId;
 	}

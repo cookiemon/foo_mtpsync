@@ -32,7 +32,7 @@ public:
 	~Win32Exception()
 	{
 		if(buff != nullptr)
-			delete buff;
+			LocalFree(buff);
 	}
 
 	const char* what() throw()
