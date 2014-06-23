@@ -22,9 +22,6 @@
 #undef NULL
 #define NULL nullptr
 
-#include "CommandException.h"
-#include "Logger.h"
-
 namespace foo_mtpsync
 {
 	/**

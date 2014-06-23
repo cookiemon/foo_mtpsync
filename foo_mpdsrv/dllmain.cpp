@@ -1,6 +1,5 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "common.h"
-#include "ConfigVars.h"
 #include "Synchronizator.h"
 
 namespace foo_mtpsync
