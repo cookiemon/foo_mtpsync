@@ -9,6 +9,7 @@
 #include <PortableDevice.h>
 #include <PortableDeviceApi.h>
 #include <PortableDeviceTypes.h>
+#include <string>
 #include <vector>
 
 namespace foo_mtpsync
@@ -49,6 +50,8 @@ namespace foo_mtpsync
 
 	std::wstring MTPDevice::CreateFolder(const std::wstring& parentId, const std::wstring& folderName)
 	{
+		if(abort != nullptr)
+			abort->check();
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDeviceValues> values;
 		values.CoCreateInstance(CLSID_PortableDeviceValues);
@@ -68,6 +71,8 @@ namespace foo_mtpsync
 
 	void MTPDevice::Delete(const std::wstring& objId)
 	{
+		if(abort != nullptr)
+			abort->check();
 		HRESULT hr = S_OK;
 		CComPtr<IPortableDevicePropVariantCollection> col;
 		col.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
@@ -83,9 +88,11 @@ namespace foo_mtpsync
 
 	void MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
 	{
+		if(abort != nullptr)
+			abort->check();
 		if(status != nullptr)
 		{
-			status->set_progress(toSync.get_count());
+			status->set_progress(statusMax - toSync.get_count(), statusMax);
 			status->set_item_path(file->get_path());
 		}
 
@@ -152,8 +159,7 @@ namespace foo_mtpsync
 			throw Win32Exception();
 		ULARGE_INTEGER maxSize;
 		maxSize.QuadPart = std::numeric_limits<ULONGLONG>::max();
-		ULARGE_INTEGER pcbRead, pcbWritten;
-		hr = dataInputStream->CopyTo(dataOutputStream, maxSize, &pcbRead, &pcbWritten);
+		hr = dataInputStream->CopyTo(dataOutputStream, maxSize, NULL, NULL);
 		if(FAILED(hr))
 			throw Win32Exception();
 		hr = dataInputStream->Commit(STGC_DEFAULT);
@@ -310,14 +316,31 @@ namespace foo_mtpsync
 
 	void MTPDevice::run(threaded_process_status& p_status, abort_callback& p_abort)
 	{
-		status = &p_status;
-		status->set_progress(0, toSync.get_count());
+		try
+		{
+			status = &p_status;
+			abort = &p_abort;
+			statusMax = toSync.get_count();
+			status->set_progress(0, toSync.get_count());
 
-		CompareRelativePath pathComparator;
-		toSync.sort(pathComparator);
+			CompareRelativePath pathComparator;
+			toSync.sort(pathComparator);
 
-		std::wstring rootId = GetRootFolderObject();
-		SyncRecursive(pfc::string8(""), rootId, toSync, 0);
+			std::wstring rootId = GetRootFolderObject();
+			SyncRecursive(pfc::string8(""), rootId, toSync, 0);	
+		}
+		catch(std::runtime_error& ex)
+		{
+			std::string msg = "Error: ";
+			msg += ex.what();
+			MessageBoxA(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+		}
+		catch(Win32Exception& ex)
+		{
+			std::string msg = "Error: ";
+			msg += ex.what();
+			MessageBoxA(NULL, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+		}
 	}
 	int MTPDevice::service_add_ref() throw()
 	{

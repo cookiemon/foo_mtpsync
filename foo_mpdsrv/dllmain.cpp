@@ -69,7 +69,7 @@ namespace foo_mtpsync
 			switch(idx)
 			{
 			case cmd_sync:
-				out = "Sync with MTP Device";
+				out = "Sync active playlist with MTP Device";
 				break;
 			case cmd_total:
 				out = "This is madness!";
@@ -143,10 +143,9 @@ namespace foo_mtpsync
 
 	const GUID mainmenu_command_connect::_command_guid = { 0x40ab1bc6, 0xda02, 0x4156, { 0xa2, 0xcc, 0x87, 0x67, 0x8d, 0xca, 0x63, 0x2c } };
 
-	mainmenu_group_popup_factory mainmenugroup(mainmenu_command_connect::_command_guid,
+	mainmenu_group_factory mainmenugroup(mainmenu_command_connect::_command_guid,
 	                                           mainmenu_groups::file,
-	                                           static_cast<t_uint32>(mainmenu_commands::sort_priority_dontcare),
-	                                           "MTP Sync");
+	                                           static_cast<t_uint32>(mainmenu_commands::sort_priority_dontcare));
 
 	mainmenu_commands_factory_t<mainmenu_command_connect> mainmenucommand;
 }

@@ -27,6 +27,8 @@ namespace foo_mtpsync
 		pfc::list_t<metadb_handle_ptr> toSync;
 
 		threaded_process_status* status;
+		t_size statusMax;
+		abort_callback* abort;
 		int servicecount;
 		Synchronizator* parent;
 	public:
