@@ -235,16 +235,9 @@ namespace foo_mtpsync
 		PROPVARIANT var;
 		var.vt = VT_LPWSTR;
 		var.pwszVal = const_cast<LPWSTR>(objId.c_str());
-		CComPtr<IPortableDevicePropVariantCollection> err;
-		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, &err);
-		DWORD cnt;
-		err->GetCount(&cnt);
-		for(size_t i = 0; i < cnt; ++i)
-		{
-			PROPVARIANT var;
-			err->GetAt(i, &var);
-			i = i;
-		}
+		col->Add(&var);
+
+		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, nullptr);
 		if(FAILED(hr))
 			throw Win32Exception();
 	}
