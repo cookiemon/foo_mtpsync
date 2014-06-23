@@ -10,15 +10,22 @@ class Win32Exception : public std::exception
 private:
 	const DWORD ErrNum;
 	char* buff;
+
+private:
+	Win32Exception& operator=(const Win32Exception&);
 public:
 	Win32Exception()
 		: ErrNum(GetLastError()),
 		buff(nullptr)
 	{
 	}
-	Win32Exception(DWORD err)
+	explicit Win32Exception(DWORD err)
 		: ErrNum(err),
 		buff(nullptr)
+	{
+	}
+	Win32Exception(const Win32Exception& other)
+		: ErrNum(other.ErrNum), buff(nullptr)
 	{
 	}
 

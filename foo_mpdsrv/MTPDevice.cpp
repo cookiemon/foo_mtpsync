@@ -319,11 +319,10 @@ namespace foo_mtpsync
 
 	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
 	{
-		HRESULT hr = S_OK;
-		toSync.sort(CompareRelativePath());
+		CompareRelativePath pathComparator;
+		toSync.sort(pathComparator);
 
 		std::wstring rootId = GetRootFolderObject();
-		std::vector<std::wstring> toDelete;
 		SyncRecursive(pfc::string8(""), rootId, toSync, 0);
 	}
 

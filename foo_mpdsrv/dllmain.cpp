@@ -78,7 +78,7 @@ namespace foo_mtpsync
 			}
 		}
 
-		virtual bool get_display(t_uint32 idx, pfc::string_base& out, t_uint32& flags)
+		virtual bool get_display(t_uint32 idx, pfc::string_base& out, t_uint32&)
 		{
 			TRACK_CALL_TEXT("mainmenu_command_connect::get_display()");
 			get_name(idx, out);
@@ -144,7 +144,7 @@ namespace foo_mtpsync
 
 	mainmenu_group_popup_factory mainmenugroup(mainmenu_command_connect::_command_guid,
 	                                           mainmenu_groups::file,
-	                                           mainmenu_commands::sort_priority_dontcare,
+	                                           static_cast<t_uint32>(mainmenu_commands::sort_priority_dontcare),
 	                                           "MTP Sync");
 
 	mainmenu_commands_factory_t<mainmenu_command_connect> mainmenucommand;

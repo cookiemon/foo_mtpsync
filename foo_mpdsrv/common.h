@@ -40,4 +40,6 @@ namespace foo_mtpsync
 	#endif
 }
 
+#pragma warning(pop)
+
 #endif
