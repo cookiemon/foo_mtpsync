@@ -1,6 +1,6 @@
 #include "MTPDevice.h"
 #include "StringUtil.h"
-#include "Win32Exception.h"
+#include "Win32Util.h"
 #include <algorithm>
 #include <limits>
 #include <map>
@@ -8,7 +8,8 @@
 #include <PortableDeviceApi.h>
 #include <PortableDeviceTypes.h>
 #include <vector>
-
+#include <fstream>
+#include <sstream>
 namespace foo_mtpsync
 {
 	const ULONG ToFetch = 16;
@@ -144,6 +145,7 @@ namespace foo_mtpsync
 
 		CComPtr<IPortableDeviceValues> vals;
 		hr = vals.CoCreateInstance(CLSID_PortableDeviceValues);
+		vals->SetUnsignedIntegerValue(WPD_CLIENT_DESIRED_ACCESS, GENERIC_READ | GENERIC_WRITE);
 		if(FAILED(hr))
 			throw Win32Exception();
 		hr = device.CoCreateInstance(CLSID_PortableDevice);
@@ -156,6 +158,16 @@ namespace foo_mtpsync
 		if(FAILED(hr))
 			throw Win32Exception();
 		hr = content->Properties(&properties);
+		if(FAILED(hr))
+			throw Win32Exception();
+
+		hr = fNameContentTypeKeys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
+		if(FAILED(hr))
+			throw Win32Exception();
+		fNameContentTypeKeys->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
+		if(FAILED(hr))
+			throw Win32Exception();
+		fNameContentTypeKeys->Add(WPD_OBJECT_CONTENT_TYPE);
 		if(FAILED(hr))
 			throw Win32Exception();
 	}
@@ -203,9 +215,13 @@ namespace foo_mtpsync
 		values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_UNSPECIFIED);
 		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
 		LPWSTR objId;
-		hr = content->CreateObjectWithPropertiesOnly(values, &objId);
-		if(FAILED(hr))
-			hr = GetLastError();
+		do
+		{
+			hr = content->CreateObjectWithPropertiesOnly(values, &objId);
+			if(FAILED(hr))
+				hr = GetLastError();
+		}
+		while(hr == 0x3e5);
 		std::wstring newObjId = objId;
 		CoTaskMemFree(objId);
 		return newObjId;
@@ -219,71 +235,76 @@ namespace foo_mtpsync
 		PROPVARIANT var;
 		var.vt = VT_LPWSTR;
 		var.pwszVal = const_cast<LPWSTR>(objId.c_str());
-		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, NULL);
+		CComPtr<IPortableDevicePropVariantCollection> err;
+		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, &err);
+		DWORD cnt;
+		err->GetCount(&cnt);
+		for(size_t i = 0; i < cnt; ++i)
+		{
+			PROPVARIANT var;
+			err->GetAt(i, &var);
+			i = i;
+		}
 		if(FAILED(hr))
 			throw Win32Exception();
 	}
 
-	std::wstring MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
+	void MTPDevice::TransferFile(const std::wstring& parentId, const metadb_handle_ptr file)
 	{
-		// TODO
-		HRESULT hr = S_OK;
-		CComPtr<IPortableDeviceValues> values;
-		std::wstring wcharbuf;
-		pfc::string8 uft8buf;
-		values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_AUDIO);
-		values->SetStringValue(WPD_OBJECT_PARENT_ID, parentId.c_str());
-		const char* foo = file->get_path();
-		//values->SetStringValue(WPD_OBJECT_NAME, ToWChar());
-		//values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_MP3);
-		//values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE,);
-		//values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME,);
-		//values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
-		//values->SetBoolValue(WPD_OBJECT_CAN_DELETE, TRUE);
-		//values->SetStringValue(WPD_MEDIA_ARTIST,);
-		//values->SetStringValue(WPD_MEDIA_TITLE,);
-		//values->SetUnsignedIntegerValue(WPD_MEDIA_DURATION,);
-		//CComPtr<IStream> dataStream;
-		//SHOpenFolderAndSelectItems(
-		//hr = content->CreateObjectWithPropertiesAndData(values, &dataStream, NULL, NULL);
+//		HRESULT hr = S_OK;
+//		CComPtr<IPortableDeviceValues> values;
+//		values.CoCreateInstance(CLSID_PortableDeviceValues);
+//		std::wstring wcharbuf;
+//		pfc::string8 uft8buf;
+//		values->SetGuidValue(WPD_OBJECT_CONTENT_TYPE, WPD_CONTENT_TYPE_AUDIO);
+//		values->SetStringValue(WPD_OBJECT_PARENT_ID, parentId.c_str());
+//
+//		std::wstring fullPath = ToWChar(file->get_path());
+//		size_t lastSlash = fullPath.rfind('\\');
+//
+//		// TODO: Really?
+//		assert(lastSlash != std::string::npos);
+//		std::wstring fileName(fullPath.begin() + lastSlash + 1, fullPath.end());
+//
+//		values->SetStringValue(WPD_OBJECT_NAME, fileName.c_str());
+//		//values->SetGuidValue(WPD_OBJECT_FORMAT, WPD_OBJECT_FORMAT_MP3);
+//		values->SetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, fileName.c_str());
+//		values->SetBoolValue(WPD_OBJECT_NON_CONSUMABLE, TRUE);
+//		values->SetBoolValue(WPD_OBJECT_CAN_DELETE, TRUE);
+//		//values->SetStringValue(WPD_MEDIA_ARTIST,);
+//		//values->SetStringValue(WPD_MEDIA_TITLE,);
+//		//values->SetUnsignedIntegerValue(WPD_MEDIA_DURATION,);
+//		CComPtr<IStream> dataInputStream;
+//		CComPtr<IStream> dataOutputStream;
+//		hr = SHCreateStreamOnFile(fullPath.c_str() + 7, STGM_READ | STGM_SHARE_DENY_NONE, &dataInputStream);
+//		if(FAILED(hr))
+//			throw Win32Exception();
+//		DWORD optBufSize = 512;
+//		hr = content->CreateObjectWithPropertiesAndData(values, &dataOutputStream, &optBufSize, NULL);
+//		if(FAILED(hr))
+//			throw Win32Exception();
+//		ULARGE_INTEGER maxSize;
+//		maxSize.QuadPart = std::numeric_limits<ULONGLONG>::max();
+//		ULARGE_INTEGER pcbRead, pcbWritten;
+//		hr = dataInputStream->CopyTo(dataOutputStream, maxSize, &pcbRead, &pcbWritten);
+//		if(FAILED(hr))
+//			throw Win32Exception();
+//		char foo[102400];
+//		ULONG pcb2;
+//		hr = dataOutputStream->Write(foo, 102400, &pcb2);
+//		hr = dataOutputStream->Commit(STGC_CONSOLIDATE);
+////		hr = dataInputStream->Commit(STGC_DEFAULT);
+////		hr = dataOutputStream->Commit(STGC_DEFAULT);
 	}
 
 	void MTPDevice::Sync(pfc::list_t<metadb_handle_ptr> toSync)
 	{
 		HRESULT hr = S_OK;
 		toSync.sort(CompareRelativePath());
+
 		std::wstring rootId = GetRootFolderObject();
 		std::vector<std::wstring> toDelete;
 		SyncRecursive(pfc::string8(""), rootId, toSync, 0);
-
-
-		CComPtr<IPortableDevicePropVariantCollection> col;
-		col.CoCreateInstance(CLSID_PortableDevicePropVariantCollection);
-
-		std::vector<PROPVARIANT> varlist(toDelete.size());
-		for(t_size i = 0; i < toDelete.size(); ++i)
-		{
-			varlist[i].vt = VT_LPWSTR;
-			// BEWARE! DRAGONS!
-			varlist[i].pwszVal = const_cast<LPWSTR>(toDelete[i].c_str());
-			col->Add(&varlist[i]);
-		}
-		hr = content->Delete(PORTABLE_DEVICE_DELETE_WITH_RECURSION, col, NULL);
-		if(FAILED(hr))
-			throw Win32Exception();
-
-		for(t_size i = 0; i < toSync.get_count(); ++i)
-		{
-			if(FAILED(hr))
-				throw Win32Exception();
-		}
-	}
-
-	void RecursiveSynchronize(pfc::list_t<metadb_handle_ptr>& toSync,
-		t_size beginRange, t_size endRange, t_size sepPos,
-		const std::wstring& currentFolderId)
-	{
-		std::map<std::wstring, std::wstring> nameIdMap;
 	}
 
 	std::wstring MTPDevice::GetStorageObject()
@@ -352,11 +373,8 @@ namespace foo_mtpsync
 		hr = content->EnumObjects(0, objId.c_str(), nullptr, &childObjList);
 		if(FAILED(hr))
 			throw Win32Exception();
-		CComPtr<IPortableDeviceKeyCollection> keys;
-		keys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
-		keys->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
-		keys->Add(WPD_OBJECT_CONTENT_TYPE);
 
+		// Traverse complete subtree
 		LPWSTR childObjIds[ToFetch];
 		DWORD fetched = 0;
 		childObjList->Next(ToFetch, childObjIds, &fetched);
@@ -365,7 +383,9 @@ namespace foo_mtpsync
 			for(size_t i = 0; i < fetched; ++i)
 			{
 				CComPtr<IPortableDeviceValues> values;
-				properties->GetValues(childObjIds[i], keys, &values);
+				hr = properties->GetValues(childObjIds[i], fNameContentTypeKeys, &values);
+				if(FAILED(hr))
+					throw Win32Exception();
 				LPWSTR fname;
 				hr = values->GetStringValue(WPD_OBJECT_ORIGINAL_FILE_NAME, &fname);
 				if(FAILED(hr))
@@ -375,17 +395,13 @@ namespace foo_mtpsync
 				if(FAILED(hr))
 					throw Win32Exception();
 
-				pfc::string8 fnameU8 = ToUtf8<pfc::string8>(fname);
-				pfc::string8 fullChildFolder = folderName;
-				if(!folderName.is_empty())
-					fullChildFolder.add_char('\\');
-				fullChildFolder.add_string(fnameU8);
+				pfc::string8 childFolderName = ConcatenateFolder(folderName, ToUtf8<pfc::string8>(fname));
 
-				t_size pos = FindInList(fullChildFolder, syncList);
+				t_size pos = FindInList(childFolderName, syncList);
 				if(pos != std::numeric_limits<t_size>::max())
 				{
 					if(type == WPD_CONTENT_TYPE_FOLDER)
-						SyncRecursive(fullChildFolder, childObjIds[i], syncList, pos);
+						SyncRecursive(childFolderName, childObjIds[i], syncList, pos);
 					else
 						syncList.remove_by_idx(pos);
 				}
@@ -397,21 +413,38 @@ namespace foo_mtpsync
 			childObjList->Next(ToFetch, childObjIds, &fetched);
 		}
 
-		metadb_handle_ptr cur = syncList[myPos];
-		while(syncList.get_count() > myPos && StrStartsWithLC(cur->get_path(), folderName))
+		// Create immediate childs and traverse them if necessary
+		static_api_ptr_t<library_manager> libMan;
+		pfc::string8 relPath;
+		metadb_handle_ptr cur = NULL;
+		if(syncList.get_count() > myPos)
 		{
-			std::string pathEnd = cur->get_path() + folderName.get_length();
-			size_t slash = pathEnd.find('\\');
-			if(slash != std::string::npos)
+			cur = syncList[myPos];
+			if(!libMan->get_relative_path(syncList.get_item(myPos), relPath))
+				throw std::runtime_error("Error, file not in library");
+		}
+		while(syncList.get_count() > myPos && PathStartsWith(relPath, folderName))
+		{
+			std::string subFolderName = relPath.get_ptr() + folderName.get_length();
+			if(!subFolderName.empty() && subFolderName[0] == '\\')
+				subFolderName.erase(0, 1);
+			size_t slash = subFolderName.find('\\');
+			if(slash != std::string::npos && slash != 0)
 			{
-				pathEnd.erase(slash);
-				pfc::string8 newFolderPath = folderName;
-				newFolderPath.add_string(pathEnd.c_str());
-				SyncRecursive(newFolderPath, CreateFolder(objId, ToWChar(pathEnd)), syncList, myPos);
+				subFolderName.erase(slash);
+				pfc::string8 newFolderPath = ConcatenateFolder(folderName, subFolderName.c_str());
+				SyncRecursive(newFolderPath, CreateFolder(objId, ToWChar(subFolderName)), syncList, myPos);
 			}
 			else
 			{
 				TransferFile(objId, syncList.get_item(myPos));
+				syncList.remove_by_idx(myPos);
+			}
+			if(syncList.get_count() > myPos)
+			{
+				cur = syncList.get_item(myPos);
+				if(!libMan->get_relative_path(cur, relPath))
+					throw std::runtime_error("Error, file not in library");
 			}
 		}
 	}
@@ -422,13 +455,11 @@ namespace foo_mtpsync
 		pfc::string8 relPath;
 		t_size i = 0;
 		for(i = 0; i < syncList.get_count() && relPath < fname; ++i)
-		{
 			libMan->get_relative_path(syncList.get_item(i), relPath);
-		}
-		if(StrStartsWith(relPath.get_ptr(), fname.get_ptr()))
-		{
+
+		i -= 1;
+		if(PathStartsWith(relPath.get_ptr(), fname.get_ptr()))
 			return i;
-		}
 		return std::numeric_limits<t_size>::max();
 	}
 }

@@ -2,7 +2,7 @@
 #define STRINGUTIL_H
 
 #include "common.h"
-#include "Win32Exception.h"
+#include "Win32Util.h"
 #include <string>
 #include <limits>
 #include <Windows.h>
@@ -186,6 +186,35 @@ namespace foo_mtpsync
 	inline std::wstring ToWChar(const std::string& str)
 	{
 		return ToWChar(str.c_str());
+	}
+
+	/**
+	 * Returns if a name is contained in a path by TODO
+	 */
+	bool PathStartsWith(const std::string& path, std::string with)
+	{
+		if(path.size() > with.size() && !with.empty())
+			return StrStartsWithLC(path, with + "\\");
+		else
+			return StrStartsWithLC(path, with);
+	}
+
+	/**
+	 * Returns if a name is contained in a path by TODO
+	 */
+	bool PathStartsWith(const pfc::string_base& path, pfc::string8 with)
+	{
+		if(path.get_length() > with.get_length() && !with.is_empty())
+			with.add_char('\\');
+		return StrStartsWithLC(path, with);
+	}
+
+	pfc::string8 ConcatenateFolder(pfc::string8 base, const pfc::string8& toAdd)
+	{
+		if(!base.is_empty() && !toAdd.is_empty() && !base.ends_with('\\'))
+			base.add_char('\\');
+		base.add_string(toAdd);
+		return base;
 	}
 }
 

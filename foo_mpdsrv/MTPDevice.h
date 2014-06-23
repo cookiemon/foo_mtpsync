@@ -19,6 +19,8 @@ namespace foo_mtpsync
 		CComPtr<IPortableDevice> device;
 		CComPtr<IPortableDeviceContent> content;
 		CComPtr<IPortableDeviceProperties> properties;
+
+		CComPtr<IPortableDeviceKeyCollection> fNameContentTypeKeys;
 	public:
 		MTPDevice(const std::wstring& myId);
 		void Sync(pfc::list_t<metadb_handle_ptr> toSync);
@@ -31,7 +33,7 @@ namespace foo_mtpsync
 	
 		void Delete(const std::wstring& objId);
 		std::wstring CreateFolder(const std::wstring& parentId, const std::wstring& folderName);
-		std::wstring TransferFile(const std::wstring& parentId, const metadb_handle_ptr file);
+		void TransferFile(const std::wstring& parentId, const metadb_handle_ptr file);
 
 		void SyncRecursive(const pfc::string_base& folderName,
 			const std::wstring& objId,
