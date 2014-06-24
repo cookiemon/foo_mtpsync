@@ -34,7 +34,7 @@ public:
 	{
 		pfc::string8 leftPath = GetRelativePath(left);
 		pfc::string8 rightPath = GetRelativePath(right);
-		return pfc::compare_t(left, right);
+		return pfc::compare_t(leftPath, rightPath);
 	}
 };
 
